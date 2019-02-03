@@ -1,11 +1,11 @@
 ﻿using CsvHelper;
+using moveDataTimeseries.fieldsDefinition;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using static moveDataTimeseries.Program;
 
 namespace moveDataTimeseries
 {
