@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "moveDataTimeseries": {
+      "commandName": "Project",
+      "commandLineArgs": "export -v -f C:\\data\\exportdata\\parametres.csv  --db=san1 -b1000 --tablename=param -e5000"
+    }
+  }
+}
