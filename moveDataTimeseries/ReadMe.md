@@ -1,7 +1,29 @@
-﻿== moveDataTimeseries
+# moveDataTimeseries
 
-ex : 
+Util to import to influxDb data from csv files.
+
+3 usages :
+* Explore : simple exploration of the content of the file rendered in the influx line protocole
+* Convert : file conversion to the influxDb line protocole. If files are too big, the program split them in bunchs smaller than the limited influxdb import file size (<25Mb)
+* Export : Export data directly to a database
+
+to get full doc on options, use `moveDataTimeseries --help`
+
+### examples 
+
+* Explore the content of file
+```
 .\moveDataTimeseries\bin\Release\netcoreapp2.1\win10-x64\moveDataTimeseries.exe explore -v -f C:\data\exportdata\parametres.csv -e 50
+```
+* convert the file for import and split out files (influxdb can't import files more than 25Mb)
+```
 .\moveDataTimeseries\bin\Release\netcoreapp2.1\win10-x64\moveDataTimeseries.exe convert -v -f C:\data\exportdata\parametres.csv -e 50
+```
+* Export data directly to a database in batch of 50000 points, renaming the measurement to `param`
+```
 .\moveDataTimeseries\bin\Release\netcoreapp2.1\win10-x64\moveDataTimeseries.exe export -v -f C:\data\exportdata\parametres.csv  --db azimut -b 50000 --tablename param
+```
+* another direct export
+```
 .\moveDataTimeseries\bin\Release\netcoreapp2.1\win10-x64\moveDataTimeseries.exe export -v -f C:\data\exportdata\DataIndicBruitJeu.csv  --db azimut -b 100000 --tablename indicbruit
+```
