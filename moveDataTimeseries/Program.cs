@@ -12,7 +12,7 @@ namespace moveDataTimeseries
     class Program
     {
         /// <summary>
-        /// usage : https://github.com/commandlineparser/commandline
+        /// usage of commandlineParser : https://github.com/commandlineparser/commandline
         /// 
         /// </summary>
 
