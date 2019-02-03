@@ -13,7 +13,12 @@ namespace moveDataTimeseries
         [Option('e', "end line", Required = false, Default = -1, HelpText = "line to end the conversion/extraction (-1 means : don't stop before the end of the file)")]
         public int endline { get; set; }
 
-        [Option("tablename", Required = false, HelpText = "optional : to override the table name to import the data to (by default, infered from the file name)")]
+        [Option('t', "data type", Required = true, Default = "", HelpText = "type of data to read, to get a list of handled types, use the typelist command")]
+        public string datatype { get; set; }
+
+     
+
+        [Option("tablename", Required = false, HelpText = "optional : to override the table name to import the data to (by default, infered from the datatype name)")]
         public string tablename { get; set; }
 
 
@@ -39,6 +44,10 @@ namespace moveDataTimeseries
     }
     [Verb("explore", HelpText = "just write out some lines in the influxdb line protocole")]
     public class ExploreOptions : Options
+    {
+    }
+    [Verb("typelist", HelpText = "write out the list of managed types of data")]
+    public class TypeListOptions : Options
     {
     }
 

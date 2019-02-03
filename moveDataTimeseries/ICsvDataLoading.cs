@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 
 namespace moveDataTimeseries
 {
-    public interface ICsvDataLoading<T>
+    public interface ICsvDataLoading<IAzValue>
     {
         /// <summary>
         /// 
@@ -12,7 +12,7 @@ namespace moveDataTimeseries
         /// <param name="start">line to start</param>
         /// <param name="end">line to stop</param>
         /// <returns></returns>
-        IEnumerable<T> ReadData(int start = 0, int end = -1);
+        IEnumerable<IAzValue> ReadData(int start = 0, int end = -1);
         /// <summary>
         /// run a action per batch of <batchsie></batchsie> max size.
         /// </summary>

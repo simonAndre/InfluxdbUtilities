@@ -11,16 +11,19 @@ namespace moveDataTimeseries
 {
 
 
-    public class CsvDataLoading<T> : ICsvDataLoading<T>
+    public class CsvDataLoading<IAzValue> : ICsvDataLoading<IAzValue>
     {
         private string _filepath;
         private string _measurementname;
         private bool _verbose;
-        public CsvDataLoading(string csvfilepath, string measurementname, bool verbose = false)
+        private string _datatype;
+   
+        public CsvDataLoading(string csvfilepath,string datatype, string measurementname, bool verbose = false)
         {
             _filepath = csvfilepath;
             _measurementname = measurementname ?? Path.GetFileName(_filepath).Replace(".csv", "");
             _verbose = verbose;
+            _datatype = datatype;
         }
 
 
@@ -148,17 +151,17 @@ namespace moveDataTimeseries
         /// <param name="start">line to start</param>
         /// <param name="end">line to stop</param>
         /// <returns></returns>
-        public IEnumerable<T> ReadData(int start = 0, int end = -1)
+        public IEnumerable<IAzValue> ReadData(int start = 0, int end = -1)
         {
             if (end > -1 && end < start)
                 throw new Exception("end must be greater than start");
             using (var reader = new StreamReader(_filepath, Encoding.UTF8))
-            using (var csv = new CsvReader(reader, Parametres.GetConfiguration()))
+            using (var csv = new CsvReader(reader, FieldConfigurations.GetConfiguration(_datatype)))
             {
-                var records = csv.GetRecords<T>();
+                var records = csv.GetRecords(this.GetType().Assembly.GetType("moveDataTimeseries.fieldsDefinition."+_datatype));
                 int i = start;
 
-                foreach (var item in records.Skip(start))
+                foreach (IAzValue item in records.Skip(start))
                 {
                     if (end > -1 && (i++ > end))
                         break;
@@ -167,6 +170,6 @@ namespace moveDataTimeseries
             }
         }
 
-
+      
     }
 }

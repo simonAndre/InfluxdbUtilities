@@ -2,7 +2,7 @@
   "profiles": {
     "moveDataTimeseries": {
       "commandName": "Project",
-      "commandLineArgs": "export -v -f C:\\data\\exportdata\\parametres.csv  --db=san1 -b1000 --tablename=param -e5000"
+      "commandLineArgs": "explore -v -f C:\\data\\exportdata\\datajeu1.csv -e 50 -t Data"
     }
   }
 }
