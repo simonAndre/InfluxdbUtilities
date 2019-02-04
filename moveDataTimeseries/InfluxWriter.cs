@@ -7,13 +7,14 @@ using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 
 namespace moveDataTimeseries
 {
     public class InfluxWriter
     {
         private ICsvDataLoading _csvdataloading;
-        private bool _verbose;
+        private Verbosity _verbose;
 
         private ExportOptions Options { get; }
 
@@ -28,18 +29,16 @@ namespace moveDataTimeseries
 
         private class InfluxPayload
         {
-            public InfluxPayload(string filepath, int batchcount, bool verbose)
+            public InfluxPayload(int batchcount, Verbosity verbose)
             {
-                currentFileSize = 0;
                 lines = 0;
-                //filename = filepath.Replace(".csv", $"_out_{batchcount}.csv");
-                //writer = new StreamWriter(File.Create(filename));
-                //if (verbose)
-                //    Console.WriteLine($">>>>>> create file {filename}");
+                batchnumber = batchcount;
+                payload = new LineProtocolPayload();
+                if (verbose > Verbosity.lowlevel)
+                    Console.WriteLine(">>>>>> new payload creation");
             }
             public LineProtocolPayload payload { get; set; }
             public int lines { get; set; }
-            public int currentFileSize { get; set; }
             public int batchnumber { get; set; }
         }
 
@@ -52,58 +51,57 @@ namespace moveDataTimeseries
         /// <param name="uri"></param>
         /// <param name="batchsize">size of the batches in ponts</param>
         /// <returns>nb of batchs done</returns>
-        public async Task<Tuple<int,int>> writeInfludb()
+        public async Task<Tuple<int, int>> writeInfludb()
         {
             //get properties for fields and tags (tags=indexed fields in influxdb)
             var tags = _csvdataloading.Datatype.GetProperties().Where(p => p.GetCustomAttributes().Any(a => a is TagAttribute));
             var fields = _csvdataloading.Datatype.GetProperties().Where(p => p.GetCustomAttributes().Any(a => a is FieldAttribute));
-            string measurementname = Options.tablename?? _csvdataloading.Datatype.Name;
+            string measurementname = Options.tablename ?? _csvdataloading.Datatype.Name;
             var client = new LineProtocolClient(new Uri(Options.serveruri), Options.database);
 
-            ConcurrentQueue<LineProtocolPayload> payloadQueue = new ConcurrentQueue<LineProtocolPayload>();
-            try
-            {
-                return await _csvdataloading.BatchRunAsync(
-                    // Action per line
-                    item =>
-                    {
-                        LineProtocolPayload payload;
-                        if (!payloadQueue.TryPeek(out payload))
-                        {
-                            payload = new LineProtocolPayload();
-                            payloadQueue.Enqueue(payload);
-                            if (_verbose)
-                                Console.WriteLine(">>>>>> new payload creation");
-                        }
-                        if (item.Time.HasValue)         //without time
-                        {
-                            var tagsvalue = new Dictionary<string, string>(tags.Select(t => new KeyValuePair<string, string>(t.Name, t.GetValue(item).ToString())));
-                            var fieldsvalue = new Dictionary<string, object>(fields.Select(t => new KeyValuePair<string, object>(t.Name, t.GetValue(item))));
-                            var influxline = new LineProtocolPoint(measurementname, fieldsvalue, tagsvalue, item.Time.Value);
-                            if (_verbose)
-                                Console.WriteLine($"add point to PL : {item}");
-                            payload.Add(influxline);
-                        }
-                        return false;
-                    },
-                //actionBatchStart
-                async batchcount =>
+            ConcurrentQueue<InfluxPayload> payloadQueue = new ConcurrentQueue<InfluxPayload>();
+            return await _csvdataloading.BatchRunAsync(
+                // Action per line
+                item =>
                 {
-                    LineProtocolPayload payload;
-                    Console.WriteLine($">>>>>>>  sending batch of data to influxdb");
-                    if (payloadQueue.TryDequeue(out payload))
-                    {
-                        var resas = await client.WriteAsync(payload);
-                        if (!resas.Success)
-                            Console.Error.WriteLine(resas.ErrorMessage);
+                    InfluxPayload bunch;
+                    if (!payloadQueue.TryPeek(out bunch))
+                        throw new Exception("Algo exception : unable to retreive payload bunch");
+
+                    if (item.Time.HasValue)         //without time, no time-serie !
+                        {
+                        var tagsvalue = new Dictionary<string, string>(tags.Select(t => new KeyValuePair<string, string>(t.Name, t.GetValue(item).ToString())));
+                        var fieldsvalue = new Dictionary<string, object>(fields.Select(t => new KeyValuePair<string, object>(t.Name, t.GetValue(item))));
+                        var influxline = new LineProtocolPoint(measurementname, fieldsvalue, tagsvalue, item.Time.Value);
+                        bunch.payload.Add(influxline);
+                        bunch.lines++;
+                        if (_verbose == Verbosity.verbose)
+                            Console.WriteLine($"add point {bunch.lines} to PL #{bunch.batchnumber} :   >{item}");
                     }
-                }, Options.startline, Options.endline, Options.batchsize);
-            }
-            finally
+                    return false;
+                },
+            //actionBatchStart
+            async batchcount =>
             {
-            }
+                payloadQueue.Enqueue(new InfluxPayload(batchcount, Options.Verbose));
+            },
+            //actionBatchEnd
+            async batchcount =>
+            {
+                InfluxPayload bunch;
+                if (payloadQueue.TryDequeue(out bunch))
+                {
+                    Stopwatch sw = Stopwatch.StartNew();
+                    if (Options.Verbose > Verbosity.mute)
+                        Console.WriteLine($">>> start to send batch of data #{bunch.batchnumber} ({bunch.lines} lines) to influxdb");
+                    var resas = await client.WriteAsync(bunch.payload);
+                    if (!resas.Success)
+                        Console.Error.WriteLine($">>>!!!!>>> Error sending to influx the batch #{bunch.batchnumber} :  {resas.ErrorMessage}");
+                    Console.WriteLine($">>> batch of data #{bunch.batchnumber} ({bunch.lines} lines) sent to the server in {sw.ElapsedMilliseconds}ms : OK");
+                }
+            }, Options.startline, Options.endline, Options.batchsize);
         }
 
-      
+
     }
 }

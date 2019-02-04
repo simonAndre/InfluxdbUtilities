@@ -60,7 +60,7 @@ namespace moveDataTimeseries
         public static void Export(ExportOptions o)
         {
             Console.WriteLine($"Export data to influxDb Database.");
-            if (o.Verbose)
+            if (o.Verbose> Verbosity.mute)
             {
                 Console.WriteLine($"export to server {o.serveruri}  database : {o.database}");
             }

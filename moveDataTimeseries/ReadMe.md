@@ -14,21 +14,22 @@ to get full doc on options, use `moveDataTimeseries --help`
 * Explore the content of file
 ```
 set EXEPATH=.\moveDataTimeseries\bin\Release\netcoreapp2.1\win10-x64
-%EXEPATH%\moveDataTimeseries.exe explore -v -f C:\data\exportdata\parametres.csv -e 50 -t Parametres
-%EXEPATH%\moveDataTimeseries.exe explore -v -f C:\data\exportdata\DataJeu1.csv -t data -e 100
+%EXEPATH%\moveDataTimeseries.exe explore -v1 -f C:\data\exportdata\parametres.csv -e 50 -t Parametres
+%EXEPATH%\moveDataTimeseries.exe explore -v1 -f C:\data\exportdata\DataJeu1.csv -t data -e 100
 ```
 * convert the file for import and split out files (influxdb can't import files more than 25Mb)
 ```
-%EXEPATH%\moveDataTimeseries.exe convert -v -f C:\data\exportdata\parametres.csv -e 50 -t Parametres
-%EXEPATH%\moveDataTimeseries.exe convert -v -f C:\data\exportdata\DataJeu1.csv -t data -e 100
+%EXEPATH%\moveDataTimeseries.exe convert -v1 -f C:\data\exportdata\parametres.csv -e 50 -t Parametres
+%EXEPATH%\moveDataTimeseries.exe convert -v1 -f C:\data\exportdata\DataJeu1.csv -t data -e 100
 ```
 * Export data directly to a database in batch of 50000 points, renaming the measurement to `param`
 ```
-%EXEPATH%\moveDataTimeseries.exe export -v -f C:\data\exportdata\parametres.csv  --db azimut -b 50000 --tablename param -t Parametres
-%EXEPATH%\moveDataTimeseries.exe export -v --db azimut -b 50000 -f C:\data\exportdata\DataJeu1.csv -t data -e 100
+%EXEPATH%\moveDataTimeseries.exe export -v1 -f C:\data\exportdata\parametres.csv  --db=azimut -b 50000 --tablename param -t Parametres
+%EXEPATH%\moveDataTimeseries.exe export -v1 --db=azimut -f C:\data\exportdata\DataJeu1.csv -t data -b 50000 
+%EXEPATH%\moveDataTimeseries.exe export -v2 --db=azimut -f C:\data\exportdata\DataJeu1.csv -t data -b 20 -e 50
 ```
 * another direct export
 ```
-%EXEPATH%\moveDataTimeseries.exe export -v -f C:\data\exportdata\DataIndicBruitJeu.csv  --db azimut -b 100000 -t indicbruit
-%EXEPATH%\moveDataTimeseries.exe export -v -f C:\data\exportdata\DataJeu1.csv  --db azimut -b 100000 -t Data
+%EXEPATH%\moveDataTimeseries.exe export -v -f C:\data\exportdata\DataIndicBruitJeu.csv  --db=azimut -b 100000 -t indicbruit
+%EXEPATH%\moveDataTimeseries.exe export -v -f C:\data\exportdata\DataJeu1.csv  --db=azimut -b 100000 -t Data
 ```

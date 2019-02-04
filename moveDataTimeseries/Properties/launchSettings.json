@@ -2,7 +2,7 @@
   "profiles": {
     "moveDataTimeseries": {
       "commandName": "Project",
-      "commandLineArgs": "convert -v -f C:\\data\\exportdata\\DataJeu1.csv -t data -e 100 -b 20 --fsmax=1"
+      "commandLineArgs": "export -v1 --db=azimut -f C:\\data\\exportdata\\DataJeu1.csv -t data -b 50000 "
     }
   }
 }

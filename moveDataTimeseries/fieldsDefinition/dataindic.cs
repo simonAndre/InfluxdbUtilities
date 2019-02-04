@@ -6,9 +6,9 @@ namespace moveDataTimeseries.fieldsDefinition
 {
 
     /// <summary>
-    /// données de data brutes Aziumut
+    /// données indicateurs Aziumut
     /// </summary>
-    public class Data : IAzValue
+    public class Dataindic : IAzValue
     {
          [Tag]
         public int AffaireID { get; set; }

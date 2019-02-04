@@ -4,8 +4,8 @@ namespace moveDataTimeseries
 {
     public class Options
     {
-        [Option('v', "verbose", Required = false, HelpText = "Set output to verbose messages.")]
-        public bool Verbose { get; set; }
+        [Option('v', "verbose",Default =1, Required = false, HelpText = "Set output to verbose messages. Verbosity : 0=mute, 1=lowlevel, 2=verbose")]
+        public Verbosity Verbose { get; set; }
 
         [Option('b', "batchsize", Required = false, Default = 500, HelpText = "size of the batch to group the data to send to the database in points (influxdb lines).")]
         public int batchsize { get; set; }

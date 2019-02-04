@@ -11,12 +11,11 @@ using System.Threading.Tasks;
 namespace moveDataTimeseries
 {
 
-
     public class CsvDataLoading : ICsvDataLoading
     {
         private string _filepath;
         private string _measurementname;
-        private bool _verbose;
+        private Verbosity _verbose;
 
         public CsvDataLoading(Options options)
         {
@@ -26,7 +25,7 @@ namespace moveDataTimeseries
             Datatype = this.GetType().Assembly.GetType("moveDataTimeseries.fieldsDefinition." + options.datatype, true, true);
             Options = options;
 
-            if (_verbose)
+            if (_verbose > 0)
             {
                 Console.WriteLine($"import data file path : {_filepath}");
                 Console.WriteLine($"data type : {Datatype.Name}");
@@ -34,7 +33,7 @@ namespace moveDataTimeseries
                 Console.WriteLine($"up to line : {options.endline}");
                 Console.WriteLine($"batches max size  : {options.batchsize}");
                 Console.WriteLine($"measurementname to import to : {_measurementname}");
-                if (options.Verbose)
+                if (options.Verbose == Verbosity.verbose)
                     Console.WriteLine($"Verbose output enabled.");
                 Console.WriteLine("");
             }
@@ -45,13 +44,13 @@ namespace moveDataTimeseries
 
         private class Influxfile
         {
-            public Influxfile(string filepath, int batchcount, bool verbose)
+            public Influxfile(string filepath, int batchcount, Verbosity verbose)
             {
                 currentFileSize = 0;
                 lines = 0;
                 filename = filepath.Replace(".csv", $"_out_{batchcount}.csv");
                 writer = new StreamWriter(File.Create(filename));
-                if (verbose)
+                if (verbose > Verbosity.mute)
                     Console.WriteLine($">>>>>> create file {filename}");
             }
             public StreamWriter writer { get; set; }
@@ -81,19 +80,26 @@ namespace moveDataTimeseries
                     iflxfile.writer.WriteLine(influxline);
                     iflxfile.lines++;
                     iflxfile.currentFileSize += influxline.Length;
+                    if (_verbose == Verbosity.verbose)
+                        Console.WriteLine($"add point {iflxfile.lines} to file :   >{item}");
                     return (iflxfile.currentFileSize >= filesizemax);
                 },
+                //actionBatchStart
+                batchcount =>
+                    {
+                        writerQueue.Enqueue(new Influxfile(_filepath, batchcount, _verbose));
+                    },
+                //actionBatchEnd
                 async batchcount =>
                     {
                         Influxfile iflxfile;
                         if (writerQueue.TryDequeue(out iflxfile))
                         {
-                            if (_verbose)
+                            if (_verbose > Verbosity.mute)
                                 Console.WriteLine($">>>>>> Flush {iflxfile.lines} lines to export file {iflxfile.filename}");
                             await iflxfile.writer.FlushAsync();
                             iflxfile.writer.Close();
                         }
-                        writerQueue.Enqueue(new Influxfile(_filepath, batchcount, _verbose));
                     },
                 Options.startline, Options.endline, Options.batchsize);
         }
@@ -103,14 +109,15 @@ namespace moveDataTimeseries
         /// </summary>
         /// <param name="actionPerLine">action to perform on a line of data : param=item read, result : true= need flush</param>
         /// <param name="actionBatchStart">action to perform at the begining of the batch. param1=batch nb</param>
+        /// <param name="actionBatchEnd">action to perform at the end of the batch. param1=batch nb</param>
         /// <param name="start">line to start</param>
         /// <param name="end">line to stop</param>
         /// <param name="batchsize">size of the batch in points (influxdb lines)</param>
         /// <returns>nb of lines | nb of batches</returns>
-        public async Task<Tuple<int, int>> BatchRunAsync(Func<IAzValue, bool> actionPerLine, Func<int, Task> actionBatchStart, int start = 0, int end = -1, int batchsize = 100)
+        public async Task<Tuple<int, int>> BatchRunAsync(Func<IAzValue, bool> actionPerLine, Action<int> actionBatchStart, Func<int, Task> actionBatchEnd, int start = 0, int end = -1, int batchsize = 100)
         {
             int size = 0, batchcount = 0, nb = 0;
-            await actionBatchStart(0);
+            actionBatchStart(0);
             foreach (IAzValue item in ReadData(start, end))
             {
                 size++;
@@ -118,10 +125,13 @@ namespace moveDataTimeseries
                 if (actionPerLine(item) || size >= batchsize)
                 {
                     size = 0;
-                    batchcount++;
-                    await actionBatchStart(batchcount);
+                    if (batchcount++ > 0)
+                        await actionBatchEnd(batchcount);
+                    actionBatchStart(batchcount);
                 }
             }
+            await actionBatchEnd(batchcount);
+
             return new Tuple<int, int>(nb, batchcount);
         }
 
