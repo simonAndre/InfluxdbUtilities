@@ -6,10 +6,13 @@ namespace moveDataTimeseries
     {
         [Option('v', "verbose", Required = false, HelpText = "Set output to verbose messages.")]
         public bool Verbose { get; set; }
+
         [Option('b', "batchsize", Required = false, Default = 500, HelpText = "size of the batch to group the data to send to the database in points (influxdb lines).")]
         public int batchsize { get; set; }
+
         [Option('s', "start line", Required = false, Default = 0, HelpText = "line to start the conversion/extraction")]
         public int startline { get; set; }
+
         [Option('e', "end line", Required = false, Default = -1, HelpText = "line to end the conversion/extraction (-1 means : don't stop before the end of the file)")]
         public int endline { get; set; }
 

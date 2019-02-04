@@ -16,12 +16,14 @@ namespace moveDataTimeseries
                 Delimiter = "\t",
                 HasHeaderRecord = false
             };
-            switch (datatypeName)
+
+            switch (datatypeName.ToLower())
             {
-                case "Parametres":
+                case "parametres":
                     conf.RegisterClassMap<Parametres.ParametersMap>();
                     return conf;
-                case "Data":
+                case "data":
+                    conf.Delimiter = ",";
                     conf.RegisterClassMap<Data.DataMap>();
                     return conf;
                 default:
@@ -34,7 +36,7 @@ namespace moveDataTimeseries
         {
             if (_typeList == null)
             {
-                var asm = typeof(Parametres).Assembly;
+                var asm = typeof(FieldConfigurations).Assembly;
                 var tl= asm.GetTypes().Where(p =>
                       p.Namespace == "moveDataTimeseries.fieldsDefinition"
                       && !p.IsSealed

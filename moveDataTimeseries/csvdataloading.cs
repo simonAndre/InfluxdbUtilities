@@ -1,6 +1,7 @@
 ﻿using CsvHelper;
 using moveDataTimeseries.fieldsDefinition;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -11,131 +12,110 @@ namespace moveDataTimeseries
 {
 
 
-    public class CsvDataLoading<IAzValue> : ICsvDataLoading<IAzValue>
+    public class CsvDataLoading : ICsvDataLoading
     {
         private string _filepath;
         private string _measurementname;
         private bool _verbose;
-        private string _datatype;
-   
-        public CsvDataLoading(string csvfilepath,string datatype, string measurementname, bool verbose = false)
+
+        public CsvDataLoading(Options options)
         {
-            _filepath = csvfilepath;
-            _measurementname = measurementname ?? Path.GetFileName(_filepath).Replace(".csv", "");
-            _verbose = verbose;
-            _datatype = datatype;
+            _filepath = options.filepath;
+            _measurementname = options.tablename ?? options.datatype.ToLower(); // Path.GetFileName(_filepath).Replace(".csv", "");
+            _verbose = options.Verbose;
+            Datatype = this.GetType().Assembly.GetType("moveDataTimeseries.fieldsDefinition." + options.datatype, true, true);
+            Options = options;
+
+            if (_verbose)
+            {
+                Console.WriteLine($"import data file path : {_filepath}");
+                Console.WriteLine($"data type : {Datatype.Name}");
+                Console.WriteLine($"start from line : {options.startline}");
+                Console.WriteLine($"up to line : {options.endline}");
+                Console.WriteLine($"batches max size  : {options.batchsize}");
+                Console.WriteLine($"measurementname to import to : {_measurementname}");
+                if (options.Verbose)
+                    Console.WriteLine($"Verbose output enabled.");
+                Console.WriteLine("");
+            }
         }
 
+        public Type Datatype { get; }
+        public Options Options { get; }
 
+        private class Influxfile
+        {
+            public Influxfile(string filepath, int batchcount, bool verbose)
+            {
+                currentFileSize = 0;
+                lines = 0;
+                filename = filepath.Replace(".csv", $"_out_{batchcount}.csv");
+                writer = new StreamWriter(File.Create(filename));
+                if (verbose)
+                    Console.WriteLine($">>>>>> create file {filename}");
+            }
+            public StreamWriter writer { get; set; }
+            public int lines { get; set; }
+            public int currentFileSize { get; set; }
+            public string filename { get; set; }
+        }
 
         /// <summary>
         /// convert the data to influxdb import format files of filesize> max size
         /// nota : in the class <typeparamref name="T"/>, the method ToString must be overridden to render a line in the influxDb line protocole
         /// </summary>
         /// <param name="filesizemax"></param>
-        /// <param name="start">line to start</param>
-        /// <param name="end">line to stop</param>
         /// <returns>nb of files created</returns>
-        public int ConvertInflux(int filesizemax = 23068672, int start = 0, int end = -1)
+        public async Task<Tuple<int, int>> ConvertInfluxAsync(int filesizemax = 23068672)
         {
-            StreamWriter Writer = null;
-            try
-            {
-                return BatchRun(item => Writer.WriteLine(_measurementname + ',' + item.ToString()), (batchcount) =>
+            //ConcurrentQueue<StreamWriter> writerQueue = new ConcurrentQueue<StreamWriter>();
+            ConcurrentQueue<Influxfile> writerQueue = new ConcurrentQueue<Influxfile>();
+
+            return await BatchRunAsync(
+                item =>
+                {
+                    Influxfile iflxfile;
+                    if (!writerQueue.TryPeek(out iflxfile))
+                        throw new Exception("Algo exception : unable to retreive Stream writer");
+                    string influxline = _measurementname + ',' + item.ToString();
+                    iflxfile.writer.WriteLine(influxline);
+                    iflxfile.lines++;
+                    iflxfile.currentFileSize += influxline.Length;
+                    return (iflxfile.currentFileSize >= filesizemax);
+                },
+                async batchcount =>
                     {
-                        if (Writer != null)
+                        Influxfile iflxfile;
+                        if (writerQueue.TryDequeue(out iflxfile))
                         {
-                            Writer.Flush();
-                            Writer.Close();
+                            if (_verbose)
+                                Console.WriteLine($">>>>>> Flush {iflxfile.lines} lines to export file {iflxfile.filename}");
+                            await iflxfile.writer.FlushAsync();
+                            iflxfile.writer.Close();
                         }
-                        if (_verbose)
-                            Console.WriteLine(">>>>>> Flush points to export file");
-                        Writer = new StreamWriter(File.Create(_filepath.Replace(".csv", $"_out_{batchcount}.csv")));
-                    }, start, end, filesizemax);
-            }
-            finally
-            {
-                Writer.Flush();
-                Writer.Close();
-            }
-        }
-        public async Task<Tuple<int,int>> ConvertInfluxAsync(int filesizemax = 23068672, int start = 0, int end = -1)
-        {
-            StreamWriter Writer = null;
-            try
-            {
-                return await BatchRunAsync(
-                    item =>
-                    {
-                        Writer.WriteLine(_measurementname + ',' + item.ToString());
+                        writerQueue.Enqueue(new Influxfile(_filepath, batchcount, _verbose));
                     },
-                   async batchcount =>
-            {
-                if (Writer != null)
-                {
-                    await Writer.FlushAsync();
-                    Writer.Close();
-                }
-                if (_verbose)
-                    Console.WriteLine(">>>>>> Flush points to export file");
-                Writer = new StreamWriter(File.Create(_filepath.Replace(".csv", $"_out_{batchcount}.csv")));
-            },
-                    start, end, filesizemax);
-            }
-            finally
-            {
-                await Writer.FlushAsync();
-                Writer.Close();
-            }
+                Options.startline, Options.endline, Options.batchsize);
         }
 
         /// <summary>
         /// run a action on the csv file data per batch of <batchsie></batchsie> max size.
         /// </summary>
-        /// <param name="actionPerLine">action to perform on a line of data</param>
-        /// <param name="actionBatchStart">action to perform at the begining of the batch. param1=batch nb</param>
-        /// <param name="start">line to start</param>
-        /// <param name="end">line to stop</param>
-        /// <param name="batchsize">size of the batch in bytes</param>
-        /// <returns>nb of batches</returns>
-        public int BatchRun(Action<IAzValue> actionPerLine, Action<int> actionBatchStart, int start = 0, int end = -1, int batchsize = 23068672)
-        {
-            int size = 0, batchcount = 0;
-            actionBatchStart(0);
-            foreach (IAzValue item in ReadData(start, end))
-            {
-                string s = item.ToString();
-                size += s.Length;
-                actionPerLine(item);
-                if (size >= batchsize)
-                {
-                    size = 0;
-                    batchcount++;
-                    actionBatchStart(batchcount);
-                }
-            }
-            return batchcount;
-        }
-
-        /// <summary>
-        /// run a action on the csv file data per batch of <batchsie></batchsie> max size.
-        /// </summary>
-        /// <param name="actionPerLine">action to perform on a line of data</param>
+        /// <param name="actionPerLine">action to perform on a line of data : param=item read, result : true= need flush</param>
         /// <param name="actionBatchStart">action to perform at the begining of the batch. param1=batch nb</param>
         /// <param name="start">line to start</param>
         /// <param name="end">line to stop</param>
         /// <param name="batchsize">size of the batch in points (influxdb lines)</param>
         /// <returns>nb of lines | nb of batches</returns>
-        public async Task<Tuple<int, int>> BatchRunAsync(Action<IAzValue> actionPerLine, Func<int, Task> actionBatchStart, int start = 0, int end = -1, int batchsize = 100)
+        public async Task<Tuple<int, int>> BatchRunAsync(Func<IAzValue, bool> actionPerLine, Func<int, Task> actionBatchStart, int start = 0, int end = -1, int batchsize = 100)
         {
-            int size = 0, batchcount = 0, nb=0;
+            int size = 0, batchcount = 0, nb = 0;
             await actionBatchStart(0);
             foreach (IAzValue item in ReadData(start, end))
             {
                 size++;
                 nb++;
-                actionPerLine(item);
-                if (size >= batchsize)
+                if (actionPerLine(item) || size >= batchsize)
                 {
                     size = 0;
                     batchcount++;
@@ -155,12 +135,12 @@ namespace moveDataTimeseries
         {
             if (end > -1 && end < start)
                 throw new Exception("end must be greater than start");
-            using (var reader = new StreamReader(_filepath, Encoding.UTF8))
-            using (var csv = new CsvReader(reader, FieldConfigurations.GetConfiguration(_datatype)))
-            {
-                var records = csv.GetRecords(this.GetType().Assembly.GetType("moveDataTimeseries.fieldsDefinition."+_datatype));
-                int i = start;
 
+            using (var reader = new StreamReader(_filepath, Encoding.UTF8))
+            using (var csv = new CsvReader(reader, FieldConfigurations.GetConfiguration(Datatype.Name)))
+            {
+                var records = csv.GetRecords(Datatype);
+                int i = start;
                 foreach (IAzValue item in records.Skip(start))
                 {
                     if (end > -1 && (i++ > end))
@@ -170,6 +150,6 @@ namespace moveDataTimeseries
             }
         }
 
-      
+
     }
 }

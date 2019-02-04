@@ -1,5 +1,6 @@
 ﻿using CsvHelper.Configuration;
 using System;
+using System.Globalization;
 
 namespace moveDataTimeseries.fieldsDefinition
 {
@@ -20,7 +21,7 @@ namespace moveDataTimeseries.fieldsDefinition
         [Field]
         public int TypeCanalID { get; set; }
         [Field]
-        public string value { get; set; }
+        public double? value { get; set; }
        
         public DateTime? Time { get; set; }
 
@@ -51,9 +52,15 @@ namespace moveDataTimeseries.fieldsDefinition
                 Map(m => m.AffaireID).Index(0);
                 Map(m => m.voieid).Index(1);
                 Map(m => m.TypeVoieID).Index(2);
-                Map(m => m.ntsid).Index(3);
+                Map(m => m.ntsid).Index(3).Optional().Default(0);
                 Map(m => m.TypeCanalID).Index(5);
-                Map(m => m.value).Index(6);
+                Map(m => m.value).Index(6).ConvertUsing(row => {
+                    double d;
+                //double.Parse(row.GetField(6).Replace('.', ','))
+                if (double.TryParse(row.GetField(6), System.Globalization.NumberStyles.AllowDecimalPoint, CultureInfo.CreateSpecificCulture("en-US"), out d))
+                        return d;
+                    return null;
+                });
                 Map(m => m.Time).ConvertUsing(row =>
                 {
                     if (string.IsNullOrEmpty(row.GetField(4)))

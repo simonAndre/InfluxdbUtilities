@@ -2,7 +2,7 @@
   "profiles": {
     "moveDataTimeseries": {
       "commandName": "Project",
-      "commandLineArgs": "explore -v -f C:\\data\\exportdata\\datajeu1.csv -e 50 -t Data"
+      "commandLineArgs": "convert -v -f C:\\data\\exportdata\\DataJeu1.csv -t data -e 100 -b 20 --fsmax=1"
     }
   }
 }
