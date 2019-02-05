@@ -59,7 +59,7 @@ namespace moveDataTimeseries.fieldsDefinition
                 //double.Parse(row.GetField(6).Replace('.', ','))
                 if (double.TryParse(row.GetField(6), System.Globalization.NumberStyles.AllowDecimalPoint, CultureInfo.CreateSpecificCulture("en-US"), out d))
                         return d;
-                    return null;
+                    throw new Exception($"bad value : {row.GetField(6)}");
                 });
                 Map(m => m.Time).ConvertUsing(row =>
                 {

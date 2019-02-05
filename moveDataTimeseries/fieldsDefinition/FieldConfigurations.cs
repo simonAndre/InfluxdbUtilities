@@ -13,18 +13,21 @@ namespace moveDataTimeseries
         {
             var conf = new CsvHelper.Configuration.Configuration()
             {
-                Delimiter = "\t",
+                Delimiter = ",",
                 HasHeaderRecord = false
             };
 
             switch (datatypeName.ToLower())
             {
                 case "parametres":
+                    conf.Delimiter = "\t";
                     conf.RegisterClassMap<Parametres.ParametersMap>();
                     return conf;
                 case "data":
-                    conf.Delimiter = ",";
                     conf.RegisterClassMap<Data.DataMap>();
+                    return conf;
+                case "dataindicbruit":
+                    conf.RegisterClassMap<Dataindicbruit.DataindicbruitMap>();
                     return conf;
                 default:
                     throw new Exception($"bad type name : the parsing of the type {datatypeName} is not implemented");

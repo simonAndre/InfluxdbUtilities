@@ -17,10 +17,10 @@ namespace moveDataTimeseries
         private string _measurementname;
         private Verbosity _verbose;
 
-        public CsvDataLoading(Options options)
+        public CsvDataLoading(DataLoadOptions options)
         {
             _filepath = options.filepath;
-            _measurementname = options.tablename ?? options.datatype.ToLower(); // Path.GetFileName(_filepath).Replace(".csv", "");
+            _measurementname = (options.tablename ?? options.datatype.ToLower()).ToLower();
             _verbose = options.Verbose;
             Datatype = this.GetType().Assembly.GetType("moveDataTimeseries.fieldsDefinition." + options.datatype, true, true);
             Options = options;
@@ -40,7 +40,7 @@ namespace moveDataTimeseries
         }
 
         public Type Datatype { get; }
-        public Options Options { get; }
+        public DataLoadOptions Options { get; }
 
         private class Influxfile
         {
@@ -104,6 +104,19 @@ namespace moveDataTimeseries
                 Options.startline, Options.endline, Options.batchsize);
         }
 
+
+
+        public async Task<Tuple<int, int>> Explore()
+        {
+            return await BatchRunAsync(line =>
+                    {
+                        if (Options.Verbose > Verbosity.mute)
+                            Console.WriteLine(_measurementname + ',' + line);
+                        return false;
+                    }, start: Options.startline, end: Options.endline
+                );
+        }
+
         /// <summary>
         /// run a action on the csv file data per batch of <batchsie></batchsie> max size.
         /// </summary>
@@ -114,10 +127,10 @@ namespace moveDataTimeseries
         /// <param name="end">line to stop</param>
         /// <param name="batchsize">size of the batch in points (influxdb lines)</param>
         /// <returns>nb of lines | nb of batches</returns>
-        public async Task<Tuple<int, int>> BatchRunAsync(Func<IAzValue, bool> actionPerLine, Action<int> actionBatchStart, Func<int, Task> actionBatchEnd, int start = 0, int end = -1, int batchsize = 100)
+        public async Task<Tuple<int, int>> BatchRunAsync(Func<IAzValue, bool> actionPerLine, Action<int> actionBatchStart = null, Func<int, Task> actionBatchEnd = null, int start = 0, int end = -1, int batchsize = 100)
         {
             int size = 0, batchcount = 0, nb = 0;
-            actionBatchStart(0);
+            actionBatchStart?.Invoke(0);
             foreach (IAzValue item in ReadData(start, end))
             {
                 size++;
@@ -125,13 +138,13 @@ namespace moveDataTimeseries
                 if (actionPerLine(item) || size >= batchsize)
                 {
                     size = 0;
-                    if (batchcount++ > 0)
+                    if (actionBatchEnd != null && batchcount++ > 0)
                         await actionBatchEnd(batchcount);
-                    actionBatchStart(batchcount);
+                    actionBatchStart?.Invoke(batchcount);
                 }
             }
-            await actionBatchEnd(batchcount);
-
+            if (actionBatchEnd != null)
+                await actionBatchEnd(batchcount);
             return new Tuple<int, int>(nb, batchcount);
         }
 
@@ -146,16 +159,20 @@ namespace moveDataTimeseries
             if (end > -1 && end < start)
                 throw new Exception("end must be greater than start");
 
+           
+
             using (var reader = new StreamReader(_filepath, Encoding.UTF8))
-            using (var csv = new CsvReader(reader, FieldConfigurations.GetConfiguration(Datatype.Name)))
             {
-                var records = csv.GetRecords(Datatype);
-                int i = start;
-                foreach (IAzValue item in records.Skip(start))
+                using (var csv = new CsvReader(reader, FieldConfigurations.GetConfiguration(Datatype.Name)))
                 {
-                    if (end > -1 && (i++ > end))
-                        break;
-                    yield return item;
+                    var records = csv.GetRecords(Datatype);
+                    int i = start;
+                    foreach (IAzValue item in records.Skip(start))
+                    {
+                        if (end > -1 && (i++ > end))
+                            break;
+                        yield return item;
+                    }
                 }
             }
         }

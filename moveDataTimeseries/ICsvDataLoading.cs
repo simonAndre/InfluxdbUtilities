@@ -24,12 +24,12 @@ namespace moveDataTimeseries
         /// <param name="end">line to stop</param>
         /// <param name="batchsize">size of the batch in bytes</param>
         /// <returns></returns>
-        Task<Tuple<int, int>> BatchRunAsync(Func<IAzValue, bool> actionPerLine, Action<int> actionBatchStart, Func<int, Task> actionBatchEnd, int start = 0, int end = -1, int batchsize = 100);
+        Task<Tuple<int, int>> BatchRunAsync(Func<IAzValue, bool> actionPerLine, Action<int> actionBatchStart=null, Func<int, Task> actionBatchEnd=null, int start = 0, int end = -1, int batchsize = 100);
 
         /// <summary>
         /// Type of managed data 
         /// </summary>
         Type Datatype { get; }
-        Options Options { get; }
+        DataLoadOptions Options { get; }
     }
 }

@@ -22,27 +22,45 @@ namespace moveDataTimeseries
         {
             try
             {
-                Options options;
                 var res = Parser.Default.ParseArguments<ExportOptions, ConvertOptions, ExploreOptions, TypeListOptions>(args)
                   .WithParsed<ExportOptions>(o =>
                   {
-                      options = o;
-                      Export(o);
+                      Console.WriteLine($"Export data to influxDb Database.");
+                      if (o.Verbose > Verbosity.mute)
+                      {
+                          Console.WriteLine($"export to server {o.serveruri}  database : {o.database}");
+                      }
+
+                      Stopwatch sw = Stopwatch.StartNew();
+                      var csv = new CsvDataLoading(o);
+                      (new InfluxWriter(csv).writeInfludb())
+                          .ContinueWith(t => Console.WriteLine($"export done : {t.Result.Item1} points exported in {t.Result.Item2 + 1} batches. Duration : {sw.ElapsedMilliseconds}ms")).Wait();
                   })
                   .WithParsed<ConvertOptions>(o =>
                   {
-                      options = o;
-                      Convert(o);
+                      Stopwatch sw = Stopwatch.StartNew();
+                      var csv = new CsvDataLoading(o);
+                      int filesizemax = 1048576 * o.filesizemax; //filesize max in Mb
+                      csv.ConvertInfluxAsync(filesizemax).ContinueWith(t =>
+                          Console.WriteLine($"Conversion done : {t.Result.Item1} points exported in {t.Result.Item2 + 1} files. Duration : {sw.ElapsedMilliseconds}ms"))
+                          .Wait();
                   })
                   .WithParsed<ExploreOptions>(o =>
                   {
-                      options = o;
-                      Explore(o);
+                      var csv = new CsvDataLoading(o);
+                      csv.Explore().ContinueWith(t =>
+                      {
+                          Console.WriteLine($"Exploration done for {t.Result.Item1} points");
+                      });
                   })
-                .WithParsed<TypeListOptions>(o =>
+                  .WithParsed<TypeListOptions>(o =>
                   {
-                      options = o;
-                      TypeList(o);
+                      Console.WriteLine("Managed types :");
+                      foreach (var datatype in FieldConfigurations.GetTypeList())
+                      {
+                          Console.WriteLine(datatype);
+                      }
+                      Console.WriteLine();
                   });
             }
             catch (Exception e)
@@ -57,53 +75,6 @@ namespace moveDataTimeseries
 
         }
 
-        public static void Export(ExportOptions o)
-        {
-            Console.WriteLine($"Export data to influxDb Database.");
-            if (o.Verbose> Verbosity.mute)
-            {
-                Console.WriteLine($"export to server {o.serveruri}  database : {o.database}");
-            }
 
-            Stopwatch sw = Stopwatch.StartNew();
-            var csv = new CsvDataLoading(o);
-            (new InfluxWriter(csv).writeInfludb())
-                .ContinueWith(t => Console.WriteLine($"export done : {t.Result.Item1} points exported in {t.Result.Item2 + 1} batches. Duration : {sw.ElapsedMilliseconds}ms")).Wait();
-        }
-
-
-        public static void Explore(ExploreOptions o)
-        {
-            var csv = new CsvDataLoading(o);
-            Console.WriteLine($"read lines {o.startline} to {o.endline}");
-            string filename = Path.GetFileName(o.filepath);
-            string measurementname = o.tablename ?? filename.Replace(".csv", "");
-            foreach (var item in csv.ReadData(o.startline, o.endline))
-            {
-                Console.WriteLine(measurementname + ',' + item);
-            }
-        }
-
-        public static void Convert(ConvertOptions o)
-        {
-            Stopwatch sw = Stopwatch.StartNew();
-            var csv = new CsvDataLoading(o);
-            int filesizemax = 1048576 * o.filesizemax; //filesize max in Mb
-            (csv.ConvertInfluxAsync(filesizemax)).ContinueWith(t =>
-                Console.WriteLine($"Conversion done : {t.Result.Item1} points exported in {t.Result.Item2 + 1} files. Duration : {sw.ElapsedMilliseconds}ms"))
-                .Wait();
-            //csv.ConvertInflux(filesizemax);
-        }
-
-        public static void TypeList(TypeListOptions o)
-        {
-            Console.WriteLine("Managed types :");
-
-            foreach (var datatype in FieldConfigurations.GetTypeList())
-            {
-                Console.WriteLine(datatype);
-            }
-            Console.WriteLine();
-        }
     }
 }

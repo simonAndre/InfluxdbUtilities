@@ -40,6 +40,8 @@ namespace moveDataTimeseries
             public LineProtocolPayload payload { get; set; }
             public int lines { get; set; }
             public int batchnumber { get; set; }
+
+            
         }
 
         /// <summary>
@@ -56,9 +58,8 @@ namespace moveDataTimeseries
             //get properties for fields and tags (tags=indexed fields in influxdb)
             var tags = _csvdataloading.Datatype.GetProperties().Where(p => p.GetCustomAttributes().Any(a => a is TagAttribute));
             var fields = _csvdataloading.Datatype.GetProperties().Where(p => p.GetCustomAttributes().Any(a => a is FieldAttribute));
-            string measurementname = Options.tablename ?? _csvdataloading.Datatype.Name;
+            string measurementname = (Options.tablename ?? _csvdataloading.Datatype.Name).ToLower();
             var client = new LineProtocolClient(new Uri(Options.serveruri), Options.database);
-
             ConcurrentQueue<InfluxPayload> payloadQueue = new ConcurrentQueue<InfluxPayload>();
             return await _csvdataloading.BatchRunAsync(
                 // Action per line
@@ -70,8 +71,8 @@ namespace moveDataTimeseries
 
                     if (item.Time.HasValue)         //without time, no time-serie !
                         {
-                        var tagsvalue = new Dictionary<string, string>(tags.Select(t => new KeyValuePair<string, string>(t.Name, t.GetValue(item).ToString())));
-                        var fieldsvalue = new Dictionary<string, object>(fields.Select(t => new KeyValuePair<string, object>(t.Name, t.GetValue(item))));
+                        var tagsvalue = new Dictionary<string, string>(tags.Select(t => new KeyValuePair<string, string>(t.Name.ToLower(), t.GetValue(item).ToString())));
+                        var fieldsvalue = new Dictionary<string, object>(fields.Select(t => new KeyValuePair<string, object>(t.Name.ToLower(), t.GetValue(item))));
                         var influxline = new LineProtocolPoint(measurementname, fieldsvalue, tagsvalue, item.Time.Value);
                         bunch.payload.Add(influxline);
                         bunch.lines++;
@@ -98,6 +99,8 @@ namespace moveDataTimeseries
                     if (!resas.Success)
                         Console.Error.WriteLine($">>>!!!!>>> Error sending to influx the batch #{bunch.batchnumber} :  {resas.ErrorMessage}");
                     Console.WriteLine($">>> batch of data #{bunch.batchnumber} ({bunch.lines} lines) sent to the server in {sw.ElapsedMilliseconds}ms : OK");
+                    bunch.payload = null;
+                    bunch = null;
                 }
             }, Options.startline, Options.endline, Options.batchsize);
         }
