@@ -19,12 +19,12 @@ namespace moveDataTimeseries
         /// </summary>
         /// <param name="actionPerLine">action to perform on a line of data : param=item read, result : true= need flush</param>
         /// <param name="actionBatchStart">action to perform at the begining of the batch. param1=batch nb</param>
-        /// <param name="actionBatchEnd">action to perform at the end of the batch. param1=batch nb, param2=line count for this batch</param>
+        /// <param name="actionBatchEnd">action to perform at the end of the batch. param1=batch nb, param2=line count for this batch, param3=total line parsed</param>
         /// <param name="start">line to start</param>
         /// <param name="end">line to stop</param>
         /// <param name="batchsize">size of the batch in bytes</param>
         /// <returns></returns>
-        Task<Tuple<int, int>> BatchRunAsync(Func<IAzValue, bool> actionPerLine, Action<int> actionBatchStart=null, Func<int,int, Task> actionBatchEnd=null, int start = 0, int end = -1, int batchsize = 100);
+        Task<Tuple<int, int>> BatchRunAsync(Func<IAzValue, bool> actionPerLine, Action<int> actionBatchStart=null, Func<int,int,int, Task> actionBatchEnd=null, int start = 0, int end = -1, int batchsize = 100);
 
         /// <summary>
         /// Type of managed data 

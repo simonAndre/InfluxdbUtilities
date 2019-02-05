@@ -89,7 +89,7 @@ namespace moveDataTimeseries
                     {
                         writerQueue.Enqueue(new Influxfile(_filepath, batchcount, _verbose));
                     },
-                actionBatchEnd: async (batchcount, lines) =>
+                actionBatchEnd: async (batchcount, lines, totallines) =>
                      {
                          Influxfile iflxfile;
                          if (writerQueue.TryDequeue(out iflxfile))
@@ -107,17 +107,14 @@ namespace moveDataTimeseries
 
         public async Task<Tuple<int, int>> Explore()
         {
-            int totallines = 0;
-
             return await BatchRunAsync(actionPerLine: line =>
                     {
                         if (Options.Verbose > Verbosity.mute)
                             Console.WriteLine(_measurementname + ',' + line);
                         return false;
                     },
-                    actionBatchEnd: async (batch, lines) =>
+                    actionBatchEnd: async (batch, lines, totallines) =>
                     {
-                        totallines = totallines + lines;
                         Console.WriteLine($"end batch #{batch} of {lines} lines. total of {totallines} lines red");
                     },
                     actionBatchStart: b => { Console.WriteLine($"start batch #{b}"); },
@@ -130,33 +127,34 @@ namespace moveDataTimeseries
         /// </summary>
         /// <param name="actionPerLine">action to perform on a line of data : param=item read, result : true= need flush</param>
         /// <param name="actionBatchStart">action to perform at the begining of the batch. param1=batch nb</param>
-        /// <param name="actionBatchEnd">action to perform at the end of the batch. param1=batch nb, param2=line count for this batch</param>
+        /// <param name="actionBatchEnd">action to perform at the end of the batch. param1=batch nb, param2=line count for this batch, param3=total line parsed</param>
         /// <param name="start">line to start</param>
         /// <param name="end">line to stop</param>
         /// <param name="batchsize">size of the batch in points (influxdb lines)</param>
         /// <returns>nb of lines | nb of batches</returns>
-        public async Task<Tuple<int, int>> BatchRunAsync(Func<IAzValue, bool> actionPerLine, Action<int> actionBatchStart = null, Func<int, int, Task> actionBatchEnd = null, int start = 0, int end = -1, int batchsize = -1)
+        public async Task<Tuple<int, int>> BatchRunAsync(Func<IAzValue, bool> actionPerLine, Action<int> actionBatchStart = null, Func<int, int, int, Task> actionBatchEnd = null, int start = 0, int end = -1, int batchsize = -1)
         {
-            int linecount = 0, batchcount = 0, nb = 0;
+            int linecount = 0, totallinecount = 0, batchcount = 0, nb = 0;
             if (batchsize == -1)
                 batchsize = Options.batchsize;
             foreach (IAzValue item in ReadData(start, end))
             {
                 if (linecount++ == 0)
-                    actionBatchStart?.Invoke(batchcount+1);
+                    actionBatchStart?.Invoke(batchcount + 1);
                 nb++;
                 if (actionPerLine(item) || (batchsize > 0 && linecount >= batchsize))
                 {
                     batchcount++;
+                    totallinecount += linecount;
                     if (actionBatchEnd != null && batchcount > 0)
                     {
-                        await actionBatchEnd(batchcount, linecount);
+                        await actionBatchEnd(batchcount, linecount, totallinecount);
                     }
                     linecount = 0;
                 }
             }
             if (actionBatchEnd != null && linecount > 0)
-                await actionBatchEnd(batchcount, linecount);
+                await actionBatchEnd(batchcount, linecount, totallinecount);
             return new Tuple<int, int>(nb, batchcount);
         }
 
