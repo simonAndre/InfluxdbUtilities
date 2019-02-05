@@ -57,7 +57,7 @@ namespace moveDataTimeseries.fieldsDefinition
                 Map(m => m.value).Index(6).ConvertUsing(row => {
                     double d;
                 //double.Parse(row.GetField(6).Replace('.', ','))
-                if (double.TryParse(row.GetField(6), System.Globalization.NumberStyles.AllowDecimalPoint, CultureInfo.CreateSpecificCulture("en-US"), out d))
+                if (double.TryParse(row.GetField(6), NumberStyles.AllowDecimalPoint| NumberStyles.AllowExponent| NumberStyles.AllowLeadingSign, CultureInfo.CreateSpecificCulture("en-US"), out d))
                         return d;
                     throw new Exception($"bad value : {row.GetField(6)}");
                 });

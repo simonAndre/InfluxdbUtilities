@@ -29,6 +29,9 @@ namespace moveDataTimeseries
         [Option("tablename", Required = false, HelpText = "optional : to override the table name to import the data to (by default, infered from the datatype name)")]
         public string tablename { get; set; }
 
+        [Option("force", Required = false,Default =true, HelpText = "true to continue on error, false to stop at the first encounterd error")]
+        public bool force{ get; set; }
+
     }
 
     [Verb("export", HelpText = "Export data to influxDb database directly")]

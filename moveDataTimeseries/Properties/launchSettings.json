@@ -2,7 +2,7 @@
   "profiles": {
     "moveDataTimeseries": {
       "commandName": "Project",
-      "commandLineArgs": "explore -v1 -f C:\\data\\exportdata\\Data1.csv -t data -s4 -e 100"
+      "commandLineArgs": "explore -v0 -f C:\\data\\exportdata\\Data_2019.csv -t data -s0 -b100000"
     }
   }
 }

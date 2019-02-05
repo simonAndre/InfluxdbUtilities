@@ -89,31 +89,39 @@ namespace moveDataTimeseries
                     {
                         writerQueue.Enqueue(new Influxfile(_filepath, batchcount, _verbose));
                     },
-                //actionBatchEnd
-                async batchcount =>
-                    {
-                        Influxfile iflxfile;
-                        if (writerQueue.TryDequeue(out iflxfile))
-                        {
-                            if (_verbose > Verbosity.mute)
-                                Console.WriteLine($">>>>>> Flush {iflxfile.lines} lines to export file {iflxfile.filename}");
-                            await iflxfile.writer.FlushAsync();
-                            iflxfile.writer.Close();
-                        }
-                    },
-                Options.startline, Options.endline, Options.batchsize);
+                actionBatchEnd: async (batchcount, lines) =>
+                     {
+                         Influxfile iflxfile;
+                         if (writerQueue.TryDequeue(out iflxfile))
+                         {
+                             if (_verbose > Verbosity.mute)
+                                 Console.WriteLine($">>>>>> Flush {lines} lines to export file {iflxfile.filename}, total : {iflxfile.lines} lines");
+                             await iflxfile.writer.FlushAsync();
+                             iflxfile.writer.Close();
+                         }
+                     },
+               start: Options.startline, end: Options.endline, batchsize: Options.batchsize);
         }
 
 
 
         public async Task<Tuple<int, int>> Explore()
         {
-            return await BatchRunAsync(line =>
+            int totallines = 0;
+
+            return await BatchRunAsync(actionPerLine: line =>
                     {
                         if (Options.Verbose > Verbosity.mute)
                             Console.WriteLine(_measurementname + ',' + line);
                         return false;
-                    }, start: Options.startline, end: Options.endline
+                    },
+                    actionBatchEnd: async (batch, lines) =>
+                    {
+                        totallines = totallines + lines;
+                        Console.WriteLine($"end batch #{batch} of {lines} lines. total of {totallines} lines red");
+                    },
+                    actionBatchStart: b => { Console.WriteLine($"start batch #{b}"); },
+                    start: Options.startline, end: Options.endline
                 );
         }
 
@@ -122,29 +130,33 @@ namespace moveDataTimeseries
         /// </summary>
         /// <param name="actionPerLine">action to perform on a line of data : param=item read, result : true= need flush</param>
         /// <param name="actionBatchStart">action to perform at the begining of the batch. param1=batch nb</param>
-        /// <param name="actionBatchEnd">action to perform at the end of the batch. param1=batch nb</param>
+        /// <param name="actionBatchEnd">action to perform at the end of the batch. param1=batch nb, param2=line count for this batch</param>
         /// <param name="start">line to start</param>
         /// <param name="end">line to stop</param>
         /// <param name="batchsize">size of the batch in points (influxdb lines)</param>
         /// <returns>nb of lines | nb of batches</returns>
-        public async Task<Tuple<int, int>> BatchRunAsync(Func<IAzValue, bool> actionPerLine, Action<int> actionBatchStart = null, Func<int, Task> actionBatchEnd = null, int start = 0, int end = -1, int batchsize = 100)
+        public async Task<Tuple<int, int>> BatchRunAsync(Func<IAzValue, bool> actionPerLine, Action<int> actionBatchStart = null, Func<int, int, Task> actionBatchEnd = null, int start = 0, int end = -1, int batchsize = -1)
         {
-            int size = 0, batchcount = 0, nb = 0;
-            actionBatchStart?.Invoke(0);
+            int linecount = 0, batchcount = 0, nb = 0;
+            if (batchsize == -1)
+                batchsize = Options.batchsize;
             foreach (IAzValue item in ReadData(start, end))
             {
-                size++;
+                if (linecount++ == 0)
+                    actionBatchStart?.Invoke(batchcount+1);
                 nb++;
-                if (actionPerLine(item) || size >= batchsize)
+                if (actionPerLine(item) || (batchsize > 0 && linecount >= batchsize))
                 {
-                    size = 0;
-                    if (actionBatchEnd != null && batchcount++ > 0)
-                        await actionBatchEnd(batchcount);
-                    actionBatchStart?.Invoke(batchcount);
+                    batchcount++;
+                    if (actionBatchEnd != null && batchcount > 0)
+                    {
+                        await actionBatchEnd(batchcount, linecount);
+                    }
+                    linecount = 0;
                 }
             }
-            if (actionBatchEnd != null)
-                await actionBatchEnd(batchcount);
+            if (actionBatchEnd != null && linecount > 0)
+                await actionBatchEnd(batchcount, linecount);
             return new Tuple<int, int>(nb, batchcount);
         }
 
@@ -159,17 +171,27 @@ namespace moveDataTimeseries
             if (end > -1 && end < start)
                 throw new Exception("end must be greater than start");
 
-           
-
-            using (var reader = new StreamReader(_filepath, Encoding.UTF8))
+            //using (var reader = new StreamReader(_filepath, Encoding.UTF8))
+            using (var reader = File.OpenText(_filepath))
             {
+                //skip the first lines
+                for (int l = 1; l < start; l++)
+                {
+                    reader.ReadLine();
+                }
+
                 using (var csv = new CsvReader(reader, FieldConfigurations.GetConfiguration(Datatype.Name)))
                 {
-                    var records = csv.GetRecords(Datatype);
                     int i = start;
-                    foreach (IAzValue item in records.Skip(start))
+                    csv.Configuration.ReadingExceptionOccurred = e =>
                     {
-                        if (end > -1 && (i++ > end))
+                        Console.WriteLine($"error on line {i} : {e.InnerException.Message}");
+                        return !Options.force;
+                    };
+
+                    foreach (IAzValue item in csv.GetRecords(Datatype))
+                    {
+                        if ((i++ >= end) && end > -1)
                             break;
                         yield return item;
                     }

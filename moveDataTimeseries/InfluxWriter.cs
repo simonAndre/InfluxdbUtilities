@@ -86,8 +86,7 @@ namespace moveDataTimeseries
             {
                 payloadQueue.Enqueue(new InfluxPayload(batchcount, Options.Verbose));
             },
-            //actionBatchEnd
-            async batchcount =>
+            actionBatchEnd:async (batchcount,lines) =>
             {
                 InfluxPayload bunch;
                 if (payloadQueue.TryDequeue(out bunch))
@@ -98,11 +97,11 @@ namespace moveDataTimeseries
                     var resas = await client.WriteAsync(bunch.payload);
                     if (!resas.Success)
                         Console.Error.WriteLine($">>>!!!!>>> Error sending to influx the batch #{bunch.batchnumber} :  {resas.ErrorMessage}");
-                    Console.WriteLine($">>> batch of data #{bunch.batchnumber} ({bunch.lines} lines) sent to the server in {sw.ElapsedMilliseconds}ms : OK");
+                    Console.WriteLine($">>> batch #{bunch.batchnumber} ({bunch.lines} lines) sent to the server in {sw.ElapsedMilliseconds}ms : OK");
                     bunch.payload = null;
                     bunch = null;
                 }
-            }, Options.startline, Options.endline, Options.batchsize);
+            },start: Options.startline,end: Options.endline,batchsize: Options.batchsize);
         }
 
 
