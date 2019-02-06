@@ -1,0 +1,17 @@
+version: '3.4'
+
+services:
+  movedatatimeseries:
+    image: ${DOCKER_REGISTRY-}movedatatimeseries:dev
+    build:
+      target: debug
+    volumes:
+      - C:\data\exportdata:/data
+      - C:\sources\PrivateRepo\InfluxdbUtilities\moveDataTimeseries:/app
+      - ${HOME}/vsdbg:/vsdbg:ro
+      - ${HOME}/.nuget/packages:/root/.nuget/packages:ro
+      - ${DOTNET_PATH}/sdk/NuGetFallbackFolder:/root/.nuget/fallbackpackages:ro
+    environment:
+      - DOTNET_USE_POLLING_FILE_WATCHER=1
+      - ASPNETCORE_ENVIRONMENT=Docker
+    entrypoint: tail -f /dev/null

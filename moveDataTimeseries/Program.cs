@@ -70,8 +70,8 @@ namespace moveDataTimeseries
             }
             Console.WriteLine();
             Console.WriteLine("end of the job.");
-            Console.WriteLine("Please, hit a key...");
-            Console.ReadKey();
+            // Console.WriteLine("Please, hit a key...");
+            // Console.ReadKey();
 
         }
 

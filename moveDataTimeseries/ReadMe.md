@@ -14,22 +14,37 @@ to get full doc on options, use `moveDataTimeseries --help`
 * Explore the content of file
 ```
 set EXEPATH=.\moveDataTimeseries\bin\Release\netcoreapp2.1\win10-x64
-%EXEPATH%\moveDataTimeseries.exe explore -v1 -f C:\data\exportdata\parametres.csv -e 50 -t Parametres
-%EXEPATH%\moveDataTimeseries.exe explore -v1 -f C:\data\exportdata\Data_2019.csv -t data -e 100
+%EXEPATH%\moveDataTimeseries.exe explore -v2 -fC:\data\exportdata\parametres.csv -e50 -tParametres
+%EXEPATH%\moveDataTimeseries.exe explore -v1 -fC:\data\exportdata\Data_2019.csv -tdata -e100
 ```
 * convert the file for import and split out files (influxdb can't import files more than 25Mb)
 ```
-%EXEPATH%\moveDataTimeseries.exe convert -v1 -f C:\data\exportdata\parametres.csv -e 50 -t Parametres
-%EXEPATH%\moveDataTimeseries.exe convert -v1 -f C:\data\exportdata\DataJeu1.csv -t data -e 100
+%EXEPATH%\moveDataTimeseries.exe convert -v1 -fC:\data\exportdata\parametres.csv -e50 -tParametres
+%EXEPATH%\moveDataTimeseries.exe convert -v1 -fC:\data\exportdata\DataJeu1.csv -tdata -e100
 ```
 * Export data directly to a database in batch of 50000 points, renaming the measurement to `param`
 ```
-%EXEPATH%\moveDataTimeseries.exe export -v1 -f C:\data\exportdata\parametres.csv  --db=azimut -b 50000 --tablename param -t Parametres
-%EXEPATH%\moveDataTimeseries.exe export -v1 --db=azimut -f C:\data\exportdata\DataJeu1.csv -t data -b 10000 
-%EXEPATH%\moveDataTimeseries.exe export -v2 --db=azimut -f C:\data\exportdata\DataIndicBruit_2019.csv -t dataindicbruit -b 50000 -e 50
+%EXEPATH%\moveDataTimeseries.exe export -v1 -fC:\data\exportdata\parametres.csv  --db=azimut -b50000 --tablename=param -tParametres
+%EXEPATH%\moveDataTimeseries.exe export -v1 --db=azimut -fC:\data\exportdata\DataJeu1.csv -tdata -b50000 
+%EXEPATH%\moveDataTimeseries.exe export -v1 --db=azimut -fC:\data\exportdata\DataIndicBruit_2019.csv -tdataindicbruit -b50000 
 ```
 * another direct export
 ```
-%EXEPATH%\moveDataTimeseries.exe export -v -f C:\data\exportdata\DataIndicBruitJeu.csv  --db=azimut -b 100000 -t indicbruit
-%EXEPATH%\moveDataTimeseries.exe export -v -f C:\data\exportdata\DataJeu1.csv  --db=azimut -b 100000 -t Data
+%EXEPATH%\moveDataTimeseries.exe export -v -fC:\data\exportdata\DataIndicBruitJeu.csv  --db=azimut -b100000 -tindicbruit
+%EXEPATH%\moveDataTimeseries.exe export -v -fC:\data\exportdata\DataJeu1.csv  --db=azimut -b100000 -tData
 ```
+
+
+## development configuration with Docker
+
+docker-compose -f docker-compose.yml -f docker-compose.override.yml up -d
+
+puis 
+``` 
+docker-compose run movedatatimeseries [COMMAND] [args]
+```
+
+ex : 
+```
+docker-compose run movedatatimeseries explore -v2 -f'/data/parametres.csv' -e50 -tParametres
+``` 

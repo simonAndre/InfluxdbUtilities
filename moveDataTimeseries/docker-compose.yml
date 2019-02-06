@@ -1,0 +1,10 @@
+version: '3.4'
+
+services:
+  movedatatimeseries:
+    image: ${DOCKER_REGISTRY-}movedatatimeseries
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: etlinflux
+    environment:

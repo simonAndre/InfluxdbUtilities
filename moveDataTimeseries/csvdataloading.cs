@@ -22,8 +22,13 @@ namespace moveDataTimeseries
             _filepath = options.filepath;
             _measurementname = (options.tablename ?? options.datatype.ToLower()).ToLower();
             _verbose = options.Verbose;
-            Datatype = this.GetType().Assembly.GetType("moveDataTimeseries.fieldsDefinition." + options.datatype, true, true);
+            Datatype = this.GetType().Assembly.GetType("moveDataTimeseries.fieldsDefinition." + options.datatype.TrimStart(' ').TrimEnd(' '),false, true);
+            if (Datatype == null)
+                throw new Exception($"Parsing of the type {options.datatype} is not implemented");
             Options = options;
+
+            if(!File.Exists(_filepath))
+                System.Console.WriteLine($"File {_filepath} doesn't exists");
 
             if (_verbose > 0)
             {
